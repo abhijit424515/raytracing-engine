@@ -4,8 +4,27 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-// color ray_color(const ray &r) { return color(0, 0, 0); }
+double hit_sphere(const point3 &center, double radius, const ray &r) {
+  auto oc = r.origin() - center;
+  auto a = dot(r.direction(), r.direction());
+  auto b = 2 * dot(r.direction(), oc);
+  auto c = dot(oc, oc) - radius * radius;
+  auto D = b * b - 4 * a * c;
+
+  if (D < 0.0)
+    return -1;
+  else
+    return (-b - sqrt(D)) / (2.0 * a);
+}
+
 color ray_color(const ray &r) {
+  auto sphere_center = point3(0, 0, -1);
+  auto t = hit_sphere(sphere_center, 0.5, r);
+  if (t > 0.0) {
+    vec3 normal = unit_vector(r.at(t) - sphere_center);
+    return 0.5 * color(normal.x() + 1, normal.y() + 1, normal.z() + 1);
+  }
+
   vec3 unit_direction = unit_vector(r.direction());
   auto a = 0.5 * (unit_direction.y() + 1.0);
   return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
