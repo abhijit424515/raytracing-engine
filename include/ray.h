@@ -1,3 +1,6 @@
+#ifndef RAY_H
+#define RAY_H
+
 #include "vec3.h"
 
 struct ray {
@@ -14,3 +17,5 @@ private:
   point3 orig;
   vec3 dir;
 };
+
+#endif

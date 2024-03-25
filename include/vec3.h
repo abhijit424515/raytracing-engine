@@ -1,3 +1,6 @@
+#ifndef VEC3_H
+#define VEC3_H
+
 #include <bits/stdc++.h>
 using namespace std;
 
@@ -39,9 +42,7 @@ struct vec3 {
 };
 
 // ----------------------------------------------------------------
-
-typedef vec3 point3;
-typedef vec3 color;
+using point3 = vec3;
 
 // Vector Utility Functions
 
@@ -80,3 +81,5 @@ inline vec3 cross(const vec3 &u, const vec3 &v) {
 }
 
 inline vec3 unit_vector(vec3 v) { return v / v.length(); }
+
+#endif
