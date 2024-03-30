@@ -3,31 +3,31 @@
 
 #include "color.h"
 #include "hittable.h"
-#include "rtweekend.h"
-#include <iostream>
 
 class camera {
 public:
+  double epsilon = 0.001; // ignoring very close ray hits (floating-point issue)
   double aspect_ratio = 16.0 / 9.0; // Ratio of image width over height
   int width = 1920;                 // Rendered image width in pixel count
   int samples_per_pixel = 10;       // Count of random samples for each pixel
+  int max_depth = 10;               // Maximum number of ray bounces into scene
 
   void render(const hittable &world) {
     initialize();
 
-    std::cout << "P3\n" << width << " " << height << "\n255\n";
+    cout << "P3\n" << width << " " << height << "\n255\n";
     for (int j = 0; j < height; j++) {
-      std::clog << "\rScanlines remaining: " << (height - j) << " " << flush;
+      clog << "\rScanlines remaining: " << (height - j) << " " << flush;
       for (int i = 0; i < width; i++) {
         color pixel_color(0, 0, 0);
         for (int sample = 0; sample < samples_per_pixel; ++sample) {
           ray r = get_ray(i, j);
-          pixel_color += ray_color(r, world);
+          pixel_color += ray_color(r, max_depth, world);
         }
-        write_color(std::cout, pixel_color, samples_per_pixel);
+        write_color(cout, pixel_color, samples_per_pixel);
       }
     }
-    std::clog << "\rDone.                 \n";
+    clog << "\rDone.                 \n";
   }
 
 private:
@@ -62,10 +62,14 @@ private:
     pixel00_loc = viewport_origin + pixel_delta_u / 2 + pixel_delta_v / 2;
   }
 
-  color ray_color(const ray &r, const hittable &world) const {
+  color ray_color(const ray &r, int depth, const hittable &world) const {
+    if (depth <= 0)
+      return color(0, 0, 0);
+
     hit_record rec;
-    if (world.hit(r, interval(0, infinity), rec)) {
-      return 0.5 * (rec.normal + color(1, 1, 1));
+    if (world.hit(r, interval(epsilon, infinity), rec)) {
+      vec3 direction = random_on_hemisphere(rec.normal);
+      return 0.5 * ray_color(ray(rec.p, direction), depth - 1, world);
     }
 
     vec3 unit_direction = unit_vector(r.direction());
