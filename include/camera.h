@@ -21,22 +21,30 @@ public:
   double focus_dist =
       10; // Distance from camera lookfrom point to plane of perfect focus
 
-  void render(const hittable &world) {
+  void render(const hittable &world, bool single_thread = false) {
     initialize();
 
-    cout << "P3\n" << width << " " << height << "\n255\n";
-    for (int j = 0; j < height; j++) {
-      clog << "\rScanlines remaining: " << (height - j) << " " << flush;
-      for (int i = 0; i < width; i++) {
-        color pixel_color(0, 0, 0);
-        for (int sample = 0; sample < samples_per_pixel; ++sample) {
-          ray r = get_ray(i, j);
-          pixel_color += ray_color(r, max_depth, world);
-        }
-        write_color(cout, pixel_color, samples_per_pixel);
-      }
+    atomic<int> processed_lines(0);
+    vector<thread> threads;
+    const int num_threads =
+        single_thread ? 1 : thread::hardware_concurrency() * 0.8;
+    const int rows_per_thread = height / num_threads;
+
+    for (int t = 0; t < num_threads; ++t) {
+      int start_height = t * rows_per_thread;
+      int end_height =
+          (t == num_threads - 1) ? height : (t + 1) * rows_per_thread;
+      threads.emplace_back(
+          [this, &world, start_height, end_height, &processed_lines]() {
+            render_portion(world, start_height, end_height, processed_lines);
+          });
     }
+
+    for (auto &thread : threads)
+      thread.join();
+
     clog << "\rDone.                 \n";
+    save_image();
   }
 
 private:
@@ -48,6 +56,26 @@ private:
   vec3 u, v, w;        // Camera frame basis vectors
   vec3 defocus_disk_u; // Defocus disk horizontal radius
   vec3 defocus_disk_v; // Defocus disk vertical radius
+
+  int ***image;
+
+  void render_portion(const hittable &world, int start_height, int end_height,
+                      atomic<int> &processed_lines) {
+    for (int j = start_height; j < end_height; j++) {
+      for (int i = 0; i < width; i++) {
+        color pixel_color(0, 0, 0);
+        for (int sample = 0; sample < samples_per_pixel; sample++) {
+          ray r = get_ray(i, j);
+          pixel_color += ray_color(r, max_depth, world);
+        }
+        color c = get_final_pixel_color(pixel_color / samples_per_pixel);
+        image[j][i][0] = c[0];
+        image[j][i][1] = c[1];
+        image[j][i][2] = c[2];
+      }
+      clog << "\rProgress: " << ++processed_lines << "/" << height << flush;
+    }
+  }
 
   void initialize() {
     height = static_cast<int>(width / aspect_ratio);
@@ -85,6 +113,25 @@ private:
     auto defocus_radius = focus_dist * tan(degrees_to_rads(defocus_angle / 2));
     defocus_disk_u = u * defocus_radius;
     defocus_disk_v = v * defocus_radius;
+
+    // initialize image matrix
+    image = new int **[height];
+    for (int i = 0; i < height; i++)
+      image[i] = new int *[width];
+
+    for (int i = 0; i < height; i++)
+      for (int j = 0; j < width; j++)
+        image[i][j] = new int[3];
+  }
+
+  void save_image() {
+    cout << "P3\n" << width << " " << height << "\n255\n";
+    for (int j = 0; j < height; j++) {
+      for (int i = 0; i < width; i++) {
+        cout << image[j][i][0] << " " << image[j][i][1] << " " << image[j][i][2]
+             << "\n";
+      }
+    }
   }
 
   color ray_color(const ray &r, int depth, const hittable &world) const {

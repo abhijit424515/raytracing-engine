@@ -6,6 +6,8 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <thread>
+#include <atomic>
 #include <vector>
 
 // Usings
